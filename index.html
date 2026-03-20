@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>GARP Screener · Nordic · StockLab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600;1,700&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:#090d12; --bg2:#0f1520; --bg3:#16202e;
+  --border:#1e2d40; --border2:#263850;
+  --ice:#7ec8e3; --amber:#e8c15a; --pine:#3fd68f;
+  --crimson:#e85a6a; --frost:#a8c4d8;
+  --text:#dce8f0; --muted:#5a7a96; --dim:#344d63;
+  --mono:'IBM Plex Mono',monospace;
+  --serif:'Cormorant Garamond',Georgia,serif;
+  --sans:'IBM Plex Sans',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.6;min-height:100vh}
+body::after{content:'';position:fixed;inset:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.4}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:200;background:rgba(9,13,18,.96);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;gap:1rem}
+.nav-back{font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:.06em;transition:color .15s;white-space:nowrap}
+.nav-back:hover{color:var(--ice)}
+.nav-back span{color:var(--ice)}
+.nav-right{display:flex;align-items:center;gap:.8rem}
+.nav-crumb{font-family:var(--mono);font-size:10px;color:var(--dim)}
+.nav-crumb em{color:var(--amber);font-style:normal}
+/* Memory indicator in nav */
+.mem-pill{font-family:var(--mono);font-size:10px;padding:2px 9px;border-radius:2px;border:1px solid var(--border);color:var(--muted);transition:all .3s}
+.mem-pill.has-data{border-color:rgba(63,214,143,.3);color:var(--pine);background:rgba(63,214,143,.07)}
+.mem-pill.no-data{border-color:var(--border);color:var(--dim)}
+
+/* HERO */
+.hero{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:3.5rem 1.5rem 2rem;display:grid;grid-template-columns:1fr auto;gap:2rem;align-items:start}
+@media(max-width:700px){.hero{grid-template-columns:1fr}}
+.hero-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ice);margin-bottom:.8rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--ice)}
+h1{font-family:var(--serif);font-size:clamp(2.4rem,4.5vw,3.8rem);font-weight:700;line-height:1.0;color:var(--text);margin-bottom:.9rem}
+h1 em{color:var(--amber);font-style:italic}
+.hero-sub{font-size:14px;color:var(--muted);max-width:500px;line-height:1.7;margin-bottom:1.5rem}
+.pill-row{display:flex;flex-wrap:wrap;gap:6px}
+.pill{font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:2px;border:1px solid var(--border2);background:var(--bg3);color:var(--muted);cursor:default;transition:border-color .15s}
+.pill strong{color:var(--amber)}
+.pill:hover{border-color:var(--ice)}
+
+.cap-table{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:1rem 1.2rem;min-width:250px}
+.cap-table-title{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:.8rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.cap-row{display:grid;grid-template-columns:10px 1fr auto;gap:.4rem .7rem;align-items:center;padding:3px 0;font-family:var(--mono);font-size:11px}
+.cap-dot{width:7px;height:7px;border-radius:50%}
+.cap-label{color:var(--frost)}.cap-range{color:var(--muted);font-size:10px;text-align:right}
+.c-large{background:#6ab4ff}.c-mid{background:#7ec8e3}.c-small{background:#a8c4d8}.c-micro{background:#344d63;border:1px solid var(--muted)}
+.cap-note{font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:.6rem;padding-top:.5rem;border-top:1px solid var(--border);line-height:1.6}
+
+/* ── BIG DROP ZONE ── */
+.dropzone-section{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:0 1.5rem 1.5rem}
+
+.dropzone{
+  position:relative;
+  border:2px dashed var(--border2);
+  border-radius:12px;
+  background:var(--bg2);
+  padding:2.5rem 2rem;
+  text-align:center;
+  cursor:pointer;
+  transition:border-color .2s,background .2s,transform .15s;
+  overflow:hidden;
+}
+.dropzone::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(126,200,227,.03) 0%,transparent 60%);
+  pointer-events:none;
+}
+.dropzone:hover,.dropzone.drag-over{
+  border-color:var(--ice);
+  background:var(--bg3);
+  transform:translateY(-1px);
+}
+.dropzone.loaded{border-color:var(--pine);border-style:solid}
+.dropzone.loading{border-color:var(--amber);border-style:solid}
+.dropzone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+
+.dz-icon{font-size:2.8rem;margin-bottom:.8rem;display:block;transition:transform .2s}
+.dropzone:hover .dz-icon{transform:scale(1.1)}
+.dropzone.loaded .dz-icon{transform:scale(1)}
+
+.dz-title{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text);margin-bottom:.3rem}
+.dz-hint{font-size:13px;color:var(--muted);margin-bottom:.5rem}
+.dz-formats{font-family:var(--mono);font-size:10px;color:var(--dim)}
+
+/* Loading spinner */
+.dz-spinner{display:none;margin:.5rem auto 0;width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--amber);border-radius:50%;animation:spin .7s linear infinite}
+.dropzone.loading .dz-spinner{display:block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Status line below drop zone */
+.dz-status-bar{
+  display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;
+  margin-top:.8rem;
+  font-family:var(--mono);font-size:11px;
+  min-height:22px;
+}
+.dz-status-cur{color:var(--pine)}
+.dz-status-prev{color:var(--frost)}
+.dz-status-sep{color:var(--dim)}
+.dz-clear-btn{
+  margin-left:auto;
+  font-family:var(--mono);font-size:10px;
+  color:var(--muted);background:none;border:1px solid var(--border);
+  padding:2px 8px;border-radius:2px;cursor:pointer;
+  transition:color .15s,border-color .15s;
+}
+.dz-clear-btn:hover{color:var(--crimson);border-color:var(--crimson)}
+
+/* FILTER ROW */
+.filter-section{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:0 1.5rem 2rem}
+.filter-row{display:flex;flex-wrap:wrap;gap:.8rem;align-items:flex-end}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg label{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.fg select,.fg input{background:var(--bg2);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 10px;border-radius:4px;outline:none;cursor:pointer;transition:border-color .15s}
+.fg select:focus,.fg input:focus{border-color:var(--ice)}
+.fg select option{background:var(--bg2)}
+
+/* RESULTS */
+.results{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:0 1.5rem 5rem}
+
+/* Stats bar */
+.stats-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:2rem;opacity:0;transform:translateY(8px);transition:opacity .4s,transform .4s}
+.stats-bar.visible{opacity:1;transform:translateY(0)}
+.stat-cell{background:var(--bg2);padding:.75rem .9rem;display:flex;flex-direction:column;gap:2px}
+.stat-label{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.stat-value{font-family:var(--mono);font-size:1.1rem;font-weight:600;color:var(--text)}
+.sv-green{color:var(--pine)}.sv-red{color:var(--crimson)}.sv-amber{color:var(--amber)}.sv-ice{color:var(--ice)}
+
+/* Section heads */
+.sec-head{display:flex;align-items:center;gap:.8rem;margin-bottom:1rem;padding-bottom:.7rem;border-bottom:1px solid var(--border)}
+.sec-badge{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;padding:3px 9px;border-radius:2px;font-weight:600}
+.b-buy{background:rgba(63,214,143,.1);color:var(--pine);border:1px solid rgba(63,214,143,.25)}
+.b-sell{background:rgba(232,90,106,.1);color:var(--crimson);border:1px solid rgba(232,90,106,.25)}
+.b-hold{background:rgba(168,196,216,.1);color:var(--frost);border:1px solid rgba(168,196,216,.2)}
+.sec-title{font-family:var(--serif);font-size:1.05rem;font-weight:600;color:var(--text)}
+.sec-count{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted)}
+
+/* Table */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:2rem}
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px}
+thead{background:var(--bg3);border-bottom:1px solid var(--border)}
+th{padding:8px 12px;text-align:left;color:var(--dim);font-size:9px;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s}
+th:hover,th.sorted{color:var(--ice)}
+td{padding:8px 12px;border-top:1px solid var(--border);white-space:nowrap;transition:background .1s}
+tr:hover td{background:var(--bg3)}
+.td-rank{color:var(--muted);font-size:10px;width:34px;text-align:center}
+.td-ticker{color:var(--amber);font-weight:500}
+.td-name{color:var(--muted);font-size:11px;max-width:155px;overflow:hidden;text-overflow:ellipsis}
+.flag-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--muted)}
+.seg-badge{display:inline-block;padding:1px 6px;border-radius:2px;font-size:9px;letter-spacing:.08em;text-transform:uppercase}
+.seg-Large{background:rgba(106,180,255,.12);color:#6ab4ff;border:1px solid rgba(106,180,255,.2)}
+.seg-Mid{background:rgba(126,200,227,.12);color:var(--ice);border:1px solid rgba(126,200,227,.2)}
+.seg-Small{background:rgba(168,196,216,.1);color:var(--frost);border:1px solid rgba(168,196,216,.18)}
+.seg-Micro{background:rgba(52,77,99,.3);color:var(--dim);border:1px solid var(--border2)}
+.chip{display:inline-block;padding:2px 8px;border-radius:2px;font-size:9px;letter-spacing:.12em;text-transform:uppercase;font-weight:600}
+.chip-buy{background:rgba(63,214,143,.1);color:var(--pine);border:1px solid rgba(63,214,143,.22)}
+.chip-sell{background:rgba(232,90,106,.1);color:var(--crimson);border:1px solid rgba(232,90,106,.22)}
+.chip-hold{background:rgba(168,196,216,.1);color:var(--frost);border:1px solid rgba(168,196,216,.18)}
+.v-good{color:var(--pine)}.v-ok{color:var(--amber)}.v-bad{color:var(--crimson)}.v-dim{color:var(--muted)}
+
+/* Empty state */
+.empty-state{text-align:center;padding:4rem 2rem;color:var(--muted);border:1px dashed var(--border);border-radius:8px;font-family:var(--mono);font-size:12px;margin-bottom:2rem}
+.empty-state .ei{font-size:2.4rem;opacity:.25;margin-bottom:1rem}
+.empty-state p{line-height:1.8}
+
+/* Export row */
+.export-row{display:flex;justify-content:flex-end;gap:.6rem;margin-bottom:1.5rem}
+.export-btn{padding:7px 16px;background:var(--bg3);border:1px solid var(--border2);color:var(--ice);font-family:var(--mono);font-size:11px;border-radius:3px;cursor:pointer;transition:border-color .15s,color .15s}
+.export-btn:hover{border-color:var(--ice)}
+
+/* Method section */
+.method-section{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:0 1.5rem 3rem}
+.method-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:1rem}
+.m-card{background:var(--bg2);padding:1.1rem 1.2rem}
+.m-step{font-family:var(--mono);font-size:9px;color:var(--ice);letter-spacing:.14em;text-transform:uppercase;margin-bottom:.4rem}
+.m-title{font-family:var(--serif);font-size:.95rem;font-weight:600;color:var(--text);margin-bottom:.35rem}
+.m-body{font-size:12px;color:var(--muted);line-height:1.55}
+
+footer{position:relative;z-index:1;border-top:1px solid var(--border);padding:1.5rem;text-align:center;font-family:var(--mono);font-size:11px;color:var(--dim)}
+footer a{color:var(--ice);text-decoration:none}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.result-section{opacity:0;transform:translateY(8px);transition:opacity .35s,transform .35s}
+.result-section.visible{opacity:1;transform:translateY(0)}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-back" href="https://alex30free.github.io/stocklab/">← <span>Stock</span>Lab</a>
+  <div class="nav-right">
+    <div class="mem-pill no-data" id="mem-pill">No previous quarter saved</div>
+    <div class="nav-crumb">09 · GARP · <em>Zulu</em></div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div>
+    <div class="hero-eyebrow">Strategy 09 · Growth at a Reasonable Price</div>
+    <h1>Jim Slater's<br/><em>Zulu Principle</em></h1>
+    <p class="hero-sub">
+      Drop your Börsdata CSV — the screener runs instantly.
+      Previous quarter is remembered automatically in your browser.
+      SE · NO · DK · FI · Nasdaq Nordic cap tiers.
+    </p>
+    <div class="pill-row">
+      <span class="pill">PEG <strong>&lt; 0.75</strong></span>
+      <span class="pill">P/E <strong>&lt; 20</strong></span>
+      <span class="pill">EPS Gr <strong>&gt; 15%</strong></span>
+      <span class="pill">ROC <strong>&gt; 12%</strong></span>
+      <span class="pill">RS 1y <strong>&gt; 0%</strong></span>
+      <span class="pill">MCap <strong>Nordic tiers</strong></span>
+    </div>
+  </div>
+
+  <div class="cap-table">
+    <div class="cap-table-title">Nasdaq Nordic Cap Tiers (EUR)</div>
+    <div class="cap-row"><span class="cap-dot c-large"></span><span class="cap-label">Large Cap</span><span class="cap-range">≥ 1 000 M</span></div>
+    <div class="cap-row"><span class="cap-dot c-mid"></span><span class="cap-label">Mid Cap</span><span class="cap-range">150–1 000 M</span></div>
+    <div class="cap-row"><span class="cap-dot c-small"></span><span class="cap-label">Small Cap</span><span class="cap-range">20–150 M</span></div>
+    <div class="cap-row"><span class="cap-dot c-micro"></span><span class="cap-label">Micro / First North</span><span class="cap-range">&lt; 20 M</span></div>
+    <div class="cap-note">MCap column is always SEK in<br/>Börsdata exports. Set EUR/SEK<br/>rate in filters below.</div>
+  </div>
+</header>
+
+<!-- ── DROP ZONE ── -->
+<section class="dropzone-section">
+  <div class="dropzone" id="dropzone">
+    <input type="file" accept=".csv" id="file-input"/>
+    <span class="dz-icon" id="dz-icon">📂</span>
+    <div class="dz-title" id="dz-title">Drop your Börsdata CSV here</div>
+    <div class="dz-hint" id="dz-hint">or click to choose file · Borsdata_SlaterZ.csv</div>
+    <div class="dz-formats">semicolon or comma delimited · UTF-8 · any size</div>
+    <div class="dz-spinner" id="dz-spinner"></div>
+  </div>
+
+  <div class="dz-status-bar" id="dz-status-bar">
+    <span class="dz-status-cur" id="status-cur"></span>
+    <span class="dz-status-sep" id="status-sep"></span>
+    <span class="dz-status-prev" id="status-prev"></span>
+    <button class="dz-clear-btn" id="clear-prev-btn" style="display:none" title="Clear saved previous quarter">Clear memory</button>
+  </div>
+</section>
+
+<!-- ── FILTERS ── -->
+<section class="filter-section">
+  <div class="filter-row">
+    <div class="fg">
+      <label>Country</label>
+      <select id="f-country">
+        <option value="ALL">All Nordic</option>
+        <option value="Sweden">🇸🇪 Sweden</option>
+        <option value="Norway">🇳🇴 Norway</option>
+        <option value="Denmark">🇩🇰 Denmark</option>
+        <option value="Finland">🇫🇮 Finland</option>
+        <option value="Iceland">🇮🇸 Iceland</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>Cap Tier</label>
+      <select id="f-tier">
+        <option value="ALL">All tiers</option>
+        <option value="Large">Large Cap</option>
+        <option value="Mid">Mid Cap</option>
+        <option value="Small">Small Cap</option>
+        <option value="Micro">Micro / First North</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>SEK → EUR rate</label>
+      <input type="number" id="f-eurrate" value="11.5" min="0.1" step="0.1" style="width:82px"/>
+    </div>
+    <div class="fg">
+      <label>Max PEG</label>
+      <input type="number" id="f-peg" value="0.75" min="0.01" step="0.05" style="width:70px"/>
+    </div>
+    <div class="fg">
+      <label>Max P/E</label>
+      <input type="number" id="f-pe" value="20" min="1" step="1" style="width:62px"/>
+    </div>
+    <div class="fg">
+      <label>Min EPS Gr%</label>
+      <input type="number" id="f-epsg" value="15" min="0" step="1" style="width:70px"/>
+    </div>
+    <div class="fg">
+      <label>Min ROC%</label>
+      <input type="number" id="f-roce" value="12" min="0" step="1" style="width:62px"/>
+    </div>
+  </div>
+</section>
+
+<!-- ── RESULTS ── -->
+<main class="results" id="results-area">
+
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat-cell"><span class="stat-label">Quarter</span><span class="stat-value sv-amber" id="s-quarter">—</span></div>
+    <div class="stat-cell"><span class="stat-label">Universe</span><span class="stat-value sv-ice" id="s-univ">—</span></div>
+    <div class="stat-cell"><span class="stat-label">Qualified</span><span class="stat-value" id="s-qual">—</span></div>
+    <div class="stat-cell"><span class="stat-label">BUY</span><span class="stat-value sv-green" id="s-buy">—</span></div>
+    <div class="stat-cell"><span class="stat-label">HOLD</span><span class="stat-value" id="s-hold">—</span></div>
+    <div class="stat-cell"><span class="stat-label">SELL</span><span class="stat-value sv-red" id="s-sell">—</span></div>
+    <div class="stat-cell"><span class="stat-label">Avg PEG</span><span class="stat-value" id="s-avgpeg">—</span></div>
+    <div class="stat-cell"><span class="stat-label">Avg ROC</span><span class="stat-value" id="s-avgroc">—</span></div>
+    <div class="stat-cell"><span class="stat-label">Avg EPS Gr</span><span class="stat-value" id="s-avgepsg">—</span></div>
+  </div>
+
+  <!-- Empty state shown before first run -->
+  <div class="empty-state" id="empty-state">
+    <div class="ei">🔭</div>
+    <p>Drop your <strong style="color:var(--frost)">Borsdata_SlaterZ.csv</strong> file above.<br/>
+    The screener runs automatically the moment your file loads.<br/>
+    <span style="color:var(--dim)">Previous quarter is saved in your browser — no manual work needed.</span></p>
+  </div>
+
+  <div class="result-section" id="div-buy" style="display:none">
+    <div class="sec-head">
+      <span class="sec-badge b-buy">BUY</span>
+      <span class="sec-title">New Qualifiers — ranked Lowest PEG · Highest ROC</span>
+      <span class="sec-count" id="c-buy"></span>
+    </div>
+    <div class="tbl-wrap" id="tbl-buy"></div>
+  </div>
+
+  <div class="result-section" id="div-hold" style="display:none">
+    <div class="sec-head">
+      <span class="sec-badge b-hold">HOLD</span>
+      <span class="sec-title">Carried Forward — still passing all filters</span>
+      <span class="sec-count" id="c-hold"></span>
+    </div>
+    <div class="tbl-wrap" id="tbl-hold"></div>
+  </div>
+
+  <div class="result-section" id="div-sell" style="display:none">
+    <div class="sec-head">
+      <span class="sec-badge b-sell">SELL / EXIT</span>
+      <span class="sec-title">No Longer Qualify — flag for exit</span>
+      <span class="sec-count" id="c-sell"></span>
+    </div>
+    <div class="tbl-wrap" id="tbl-sell"></div>
+  </div>
+
+</main>
+
+<!-- METHOD -->
+<section class="method-section">
+  <div class="sec-head" style="border-bottom:1px solid var(--border)">
+    <span class="sec-title" style="font-family:var(--mono);font-size:.8rem;color:var(--muted);font-weight:400;letter-spacing:.05em">How the automation works</span>
+  </div>
+  <div class="method-grid">
+    <div class="m-card">
+      <div class="m-step">You do</div>
+      <div class="m-title">Drop CSV → done</div>
+      <div class="m-body">Upload your new Börsdata export. Everything else is automatic. No buttons to click, no renaming files.</div>
+    </div>
+    <div class="m-card">
+      <div class="m-step">Instant</div>
+      <div class="m-title">Auto-run on load</div>
+      <div class="m-body">The moment your CSV finishes loading, the screener runs all five Zulu filters and produces results.</div>
+    </div>
+    <div class="m-card">
+      <div class="m-step">Memory</div>
+      <div class="m-title">Browser saves previous quarter</div>
+      <div class="m-body">After each run, the qualifying tickers are saved in your browser's local storage. Next quarter, they're loaded automatically as the "previous" list — giving you HOLD and SELL signals without any extra steps.</div>
+    </div>
+    <div class="m-card">
+      <div class="m-step">Delta</div>
+      <div class="m-title">BUY / HOLD / SELL</div>
+      <div class="m-body">New qualifiers → BUY. Still qualifying from last quarter → HOLD. Previously qualified but no longer → SELL.</div>
+    </div>
+    <div class="m-card">
+      <div class="m-step">Filters</div>
+      <div class="m-title">Live re-filter</div>
+      <div class="m-body">Changing any filter (country, tier, thresholds) instantly re-runs the screener on the loaded data — no re-upload needed.</div>
+    </div>
+    <div class="m-card">
+      <div class="m-step">Export</div>
+      <div class="m-title">JSON snapshot</div>
+      <div class="m-body">Download report.json after each run to keep a permanent quarterly archive. Upload to your GitHub repo's output/ folder if you want version history.</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <a href="https://alex30free.github.io/stocklab/">← StockLab</a>
+  &nbsp;·&nbsp; Data: Börsdata &nbsp;·&nbsp; Cap tiers: Nasdaq Nordic (EUR) &nbsp;·&nbsp; Strategy: Jim Slater's Zulu Principle
+  &nbsp;·&nbsp; ⚠ Not financial advice
+</footer>
+
+<!-- ═══════════════════════════════════
+     ALL LOGIC
+════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ── Storage key ───────────────────────────────────────────
+const LS_KEY = 'garp_prev_quarter';   // localStorage key
+
+// ── Börsdata exact column names ──────────────────────────
+const BD = {
+  name:     'Company',
+  ticker:   'Info - Ticker',
+  currency: 'Info - Price Currency',
+  country:  'Info - Country',
+  sector:   'Info - Sector',
+  mcap:     'Market Cap - Current SEK',
+  pe:       'P/E - Current',
+  epsgrowth:'Earnings/share - Growth 1y',
+  peg:      'PEG - Current',
+  roc:      'ROC - Current',
+  rs:       'Rel. Perform - Perform. 1y',
+};
+
+const FLAGS = {Sweden:'🇸🇪',Norway:'🇳🇴',Denmark:'🇩🇰',Finland:'🇫🇮',Iceland:'🇮🇸'};
+
+// ── State ─────────────────────────────────────────────────
+let currentData  = null;   // parsed rows from this CSV upload
+let previousTickers = loadPreviousTickers();   // Set of tickers from last run
+
+// ── localStorage helpers ──────────────────────────────────
+function loadPreviousTickers() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    return { tickers: new Set(obj.tickers), quarter: obj.quarter, date: obj.date };
+  } catch(e) { return null; }
+}
+
+function savePreviousTickers(tickers, quarter) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      tickers: [...tickers],
+      quarter,
+      date: new Date().toISOString()
+    }));
+  } catch(e) {
+    console.warn('Could not save to localStorage:', e);
+  }
+}
+
+function clearPreviousTickers() {
+  try { localStorage.removeItem(LS_KEY); } catch(e) {}
+  previousTickers = null;
+  updateMemPill();
+  updateStatusBar();
+}
+
+// ── Memory pill (nav) ─────────────────────────────────────
+function updateMemPill() {
+  const pill = document.getElementById('mem-pill');
+  if (previousTickers) {
+    pill.className = 'mem-pill has-data';
+    pill.textContent = `Prev: ${previousTickers.quarter} (${previousTickers.tickers.size} stocks)`;
+  } else {
+    pill.className = 'mem-pill no-data';
+    pill.textContent = 'No previous quarter saved';
+  }
+}
+
+function updateStatusBar() {
+  const curEl   = document.getElementById('status-cur');
+  const sepEl   = document.getElementById('status-sep');
+  const prevEl  = document.getElementById('status-prev');
+  const clearBtn = document.getElementById('clear-prev-btn');
+
+  if (currentData) {
+    curEl.textContent = `✓ ${currentData.length} companies loaded`;
+  } else {
+    curEl.textContent = '';
+  }
+
+  if (previousTickers) {
+    sepEl.textContent = '·';
+    prevEl.textContent = `Memory: ${previousTickers.quarter} · ${previousTickers.tickers.size} previous qualifiers`;
+    clearBtn.style.display = '';
+  } else {
+    sepEl.textContent = '';
+    prevEl.textContent = currentData ? '(No previous quarter — first run)' : '';
+    clearBtn.style.display = 'none';
+  }
+}
+
+// ── CSV parser ────────────────────────────────────────────
+function parseCSV(text) {
+  text = text.replace(/^\uFEFF/, '');
+  const lines = text.trim().split('\n');
+  const delim = lines[0].includes(';') ? ';' : ',';
+  const headers = lines[0].split(delim).map(h => h.replace(/["'\r]/g,'').trim());
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].replace(/\r/,'').trim();
+    if (!line) continue;
+    const cells = splitLine(line, delim);
+    const row = {};
+    headers.forEach((h, idx) => { row[h] = (cells[idx]||'').replace(/^["']|["']$/g,'').trim(); });
+    rows.push(row);
+  }
+  return rows;
+}
+
+function splitLine(line, delim) {
+  const r = []; let cur = '', inQ = false;
+  for (const ch of line) {
+    if (ch === '"') { inQ = !inQ; }
+    else if (ch === delim && !inQ) { r.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  r.push(cur); return r;
+}
+
+function n(v) {
+  if (v === '' || v == null) return NaN;
+  return parseFloat(String(v).replace(/\s/g,'').replace(',','.').replace('%',''));
+}
+
+// ── Cap tier ──────────────────────────────────────────────
+function getSegment(mcapSEK) {
+  const rate = n(document.getElementById('f-eurrate').value) || 11.5;
+  const eur = mcapSEK / rate;
+  if (isNaN(eur)) return '—';
+  if (eur >= 1000) return 'Large';
+  if (eur >= 150)  return 'Mid';
+  if (eur >= 20)   return 'Small';
+  return 'Micro';
+}
+
+// ── Zulu filter ───────────────────────────────────────────
+function passesZulu(row) {
+  const peg  = n(row[BD.peg]);
+  const pe   = n(row[BD.pe]);
+  const epsG = n(row[BD.epsgrowth]);
+  const roc  = n(row[BD.roc]);
+  const rs   = n(row[BD.rs]);
+  const maxPEG  = n(document.getElementById('f-peg').value)  || 0.75;
+  const maxPE   = n(document.getElementById('f-pe').value)   || 20;
+  const minEPSG = n(document.getElementById('f-epsg').value) || 15;
+  const minROC  = n(document.getElementById('f-roce').value) || 12;
+  if (isNaN(peg)  || peg  >= maxPEG)  return false;
+  if (isNaN(pe)   || pe   <= 0)       return false;
+  if (                pe   >= maxPE)  return false;
+  if (isNaN(epsG) || epsG <= minEPSG) return false;
+  if (isNaN(roc)  || roc  <= minROC)  return false;
+  if (isNaN(rs)   || rs   <= 0)       return false;
+  return true;
+}
+
+// ── Country + tier filter ─────────────────────────────────
+function passesFilters(row) {
+  const country = document.getElementById('f-country').value;
+  const tier    = document.getElementById('f-tier').value;
+  if (country !== 'ALL' && row[BD.country] !== country) return false;
+  if (tier !== 'ALL' && getSegment(n(row[BD.mcap])) !== tier) return false;
+  return true;
+}
+
+// ── Ranking ───────────────────────────────────────────────
+function rankRows(rows) {
+  return [...rows].sort((a, b) => {
+    const pd = n(a[BD.peg]) - n(b[BD.peg]);
+    if (Math.abs(pd) > 0.001) return pd;
+    return n(b[BD.roc]) - n(a[BD.roc]);
+  });
+}
+
+function avg(rows, key) {
+  const vals = rows.map(r => n(r[key])).filter(v => !isNaN(v));
+  return vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2) : '—';
+}
+
+// ── Table builder ─────────────────────────────────────────
+function buildTable(rows, signal, showRank) {
+  if (!rows.length) return `<div style="padding:2rem;text-align:center;color:var(--muted);font-family:var(--mono);font-size:12px">No stocks in this category.</div>`;
+  const chipCls = {BUY:'chip-buy',SELL:'chip-sell',HOLD:'chip-hold'}[signal];
+  const rh = showRank ? '<th>#</th>' : '';
+  let h = `<table><thead><tr>${rh}<th>Ticker</th><th>Company</th><th>Country</th><th>Sector</th><th>Cap</th><th>Signal</th><th>PEG</th><th>P/E</th><th>EPS Gr%</th><th>ROC%</th><th>RS 1y%</th><th>MCap M SEK</th></tr></thead><tbody>`;
+  rows.forEach((row, i) => {
+    const peg=n(row[BD.peg]), pe=n(row[BD.pe]), epsG=n(row[BD.epsgrowth]);
+    const roc=n(row[BD.roc]), rs=n(row[BD.rs]), mcap=n(row[BD.mcap]);
+    const ctry=row[BD.country]||'—', seg=getSegment(mcap);
+    const sector=(row[BD.sector]||'').substring(0,16);
+    const pegC  = isNaN(peg) ?'<span class="v-dim">—</span>':`<span class="${peg<0.3?'v-good':peg<0.75?'v-ok':'v-bad'}">${peg.toFixed(2)}</span>`;
+    const peC   = isNaN(pe)  ?'<span class="v-dim">—</span>':`<span class="${pe<12?'v-good':pe<20?'v-ok':'v-bad'}">${pe.toFixed(1)}</span>`;
+    const epsgC = isNaN(epsG)?'<span class="v-dim">—</span>':`<span class="${epsG>50?'v-good':epsG>15?'v-ok':'v-bad'}">${epsG.toFixed(1)}%</span>`;
+    const rocC  = isNaN(roc) ?'<span class="v-dim">—</span>':`<span class="${roc>30?'v-good':roc>12?'v-ok':'v-bad'}">${roc.toFixed(1)}%</span>`;
+    const rsC   = isNaN(rs)  ?'<span class="v-dim">—</span>':`<span class="${rs>20?'v-good':rs>0?'v-ok':'v-bad'}">${rs.toFixed(1)}%</span>`;
+    const mcapC = isNaN(mcap)?'<span class="v-dim">—</span>':mcap.toFixed(0);
+    const segBadge = seg!=='—'?`<span class="seg-badge seg-${seg}">${seg}</span>`:'<span class="v-dim">—</span>';
+    const ctryCell = `<span class="flag-badge">${FLAGS[ctry]||'·'} ${ctry}</span>`;
+    const rankCell = showRank ? `<td class="td-rank">${i<3?['🥇','🥈','🥉'][i]:`<span class="v-dim">${i+1}</span>`}</td>` : '';
+    h += `<tr>${rankCell}<td class="td-ticker">${row[BD.ticker]||'—'}</td><td class="td-name">${row[BD.name]||'—'}</td><td>${ctryCell}</td><td style="color:var(--muted);font-size:10px">${sector}</td><td>${segBadge}</td><td><span class="chip ${chipCls}">${signal}</span></td><td>${pegC}</td><td>${peC}</td><td>${epsgC}</td><td>${rocC}</td><td>${rsC}</td><td class="v-dim">${mcapC}</td></tr>`;
+  });
+  return h + `</tbody></table>`;
+}
+
+// ── MAIN RUN — called automatically after CSV loads ───────
+function runScreener() {
+  if (!currentData) return;
+
+  const universe  = currentData.filter(r => passesFilters(r)).length;
+  const qualified = currentData.filter(r => passesZulu(r) && passesFilters(r));
+
+  // Quarter label
+  const now = new Date();
+  const q   = Math.ceil((now.getMonth()+1)/3);
+  const ql  = `Q${q} ${now.getFullYear()}`;
+
+  // Delta — compare against saved previous tickers
+  const curTickerSet  = new Set(qualified.map(r => (r[BD.ticker]||'').trim().toUpperCase()));
+  const prevTickerSet = previousTickers ? previousTickers.tickers : null;
+  const hasPrev       = !!prevTickerSet;
+
+  const buyRows  = hasPrev ? qualified.filter(r => !prevTickerSet.has((r[BD.ticker]||'').trim().toUpperCase())) : qualified;
+  const holdRows = hasPrev ? qualified.filter(r =>  prevTickerSet.has((r[BD.ticker]||'').trim().toUpperCase())) : [];
+
+  // SELL: tickers that were in previous but NOT in current qualified
+  // We need current full data to look them up for display
+  let sellRows = [];
+  if (hasPrev && currentData) {
+    const prevArr = [...prevTickerSet];
+    prevArr.forEach(ptick => {
+      if (!curTickerSet.has(ptick)) {
+        // Find the row in currentData by ticker (might still be in universe, just failing filters)
+        const found = currentData.find(r => (r[BD.ticker]||'').trim().toUpperCase() === ptick);
+        if (found) sellRows.push(found);
+        else {
+          // Not in current universe at all — create a stub
+          sellRows.push({ [BD.ticker]: ptick, [BD.name]: '(delisted or removed)', [BD.country]: '—', [BD.sector]: '—' });
+        }
+      }
+    });
+  }
+
+  const rBuy  = rankRows(buyRows);
+  const rHold = rankRows(holdRows);
+
+  // ── Update stats bar ─────────────────────────────────
+  document.getElementById('s-quarter').textContent  = ql;
+  document.getElementById('s-univ').textContent     = universe;
+  document.getElementById('s-qual').textContent     = qualified.length;
+  document.getElementById('s-buy').textContent      = rBuy.length;
+  document.getElementById('s-hold').textContent     = rHold.length;
+  document.getElementById('s-sell').textContent     = sellRows.length;
+  document.getElementById('s-avgpeg').textContent   = avg(qualified, BD.peg);
+  document.getElementById('s-avgroc').textContent   = avg(qualified, BD.roc) + '%';
+  document.getElementById('s-avgepsg').textContent  = avg(qualified, BD.epsgrowth) + '%';
+
+  // Animate stats in
+  requestAnimationFrame(() => {
+    document.getElementById('stats-bar').classList.add('visible');
+  });
+
+  // ── Hide empty state, show results ───────────────────
+  document.getElementById('empty-state').style.display = 'none';
+
+  // BUY
+  document.getElementById('c-buy').textContent = `${rBuy.length} stocks`;
+  document.getElementById('tbl-buy').innerHTML = buildTable(rBuy, 'BUY', true);
+  document.getElementById('div-buy').style.display = '';
+  setTimeout(() => document.getElementById('div-buy').classList.add('visible'), 50);
+
+  // HOLD
+  if (rHold.length) {
+    document.getElementById('c-hold').textContent = `${rHold.length} stocks`;
+    document.getElementById('tbl-hold').innerHTML = buildTable(rHold, 'HOLD', false);
+    document.getElementById('div-hold').style.display = '';
+    setTimeout(() => document.getElementById('div-hold').classList.add('visible'), 150);
+  } else {
+    document.getElementById('div-hold').style.display = 'none';
+    document.getElementById('div-hold').classList.remove('visible');
+  }
+
+  // SELL
+  if (sellRows.length) {
+    document.getElementById('c-sell').textContent = `${sellRows.length} stocks`;
+    document.getElementById('tbl-sell').innerHTML = buildTable(sellRows, 'SELL', false);
+    document.getElementById('div-sell').style.display = '';
+    setTimeout(() => document.getElementById('div-sell').classList.add('visible'), 250);
+  } else {
+    document.getElementById('div-sell').style.display = 'none';
+    document.getElementById('div-sell').classList.remove('visible');
+  }
+
+  // ── Save this run as "previous" for next quarter ──────
+  // We save only if this appears to be a NEW quarter compared to what's saved
+  const shouldSave = !previousTickers || previousTickers.quarter !== ql;
+  if (shouldSave) {
+    savePreviousTickers(curTickerSet, ql);
+    previousTickers = loadPreviousTickers();
+  }
+  updateMemPill();
+  updateStatusBar();
+
+  // ── Export button ─────────────────────────────────────
+  if (!document.getElementById('exp-btn')) {
+    const d = document.createElement('div');
+    d.className = 'export-row';
+    d.innerHTML = `<button class="export-btn" id="exp-btn">⬇ Download report.json</button>`;
+    document.getElementById('results-area').insertBefore(d, document.getElementById('stats-bar'));
+  }
+  document.getElementById('exp-btn').onclick = () => {
+    const report = {
+      generated: now.toISOString(), quarter: ql,
+      filters: {
+        peg: `<${document.getElementById('f-peg').value}`,
+        pe:  `<${document.getElementById('f-pe').value}`,
+        epsGrowth: `>${document.getElementById('f-epsg').value}%`,
+        roc: `>${document.getElementById('f-roce').value}%`,
+        rs: '>0%',
+        country: document.getElementById('f-country').value,
+        tier: document.getElementById('f-tier').value,
+      },
+      summary: { universe, qualified: qualified.length, buy: rBuy.length, hold: rHold.length, sell: sellRows.length,
+                 avg_peg: avg(qualified, BD.peg), avg_roc: avg(qualified, BD.roc) },
+      buy:  rBuy.map(cleanRow),
+      hold: rHold.map(cleanRow),
+      sell: sellRows.map(cleanRow),
+    };
+    const blob = new Blob([JSON.stringify(report, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `garp-${ql.replace(' ','-')}.json`;
+    a.click();
+  };
+
+  // Scroll to results
+  document.getElementById('results-area').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cleanRow(r) {
+  return {
+    ticker:    r[BD.ticker]||'',
+    name:      r[BD.name]||'',
+    country:   r[BD.country]||'',
+    sector:    r[BD.sector]||'',
+    mcap_sek:  n(r[BD.mcap]),
+    segment:   getSegment(n(r[BD.mcap])),
+    pe:        n(r[BD.pe]),
+    peg:       n(r[BD.peg]),
+    eps_growth:n(r[BD.epsgrowth]),
+    roc:       n(r[BD.roc]),
+    rs_1y:     n(r[BD.rs]),
+  };
+}
+
+// ── File loading — called automatically on file select ────
+function handleFile(file) {
+  if (!file) return;
+
+  // Update drop zone UI to loading state
+  const dz = document.getElementById('dropzone');
+  dz.classList.remove('loaded');
+  dz.classList.add('loading');
+  document.getElementById('dz-icon').textContent = '⏳';
+  document.getElementById('dz-title').textContent = 'Reading file…';
+  document.getElementById('dz-hint').textContent = file.name;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      currentData = parseCSV(e.target.result);
+
+      // Update drop zone to loaded state
+      dz.classList.remove('loading');
+      dz.classList.add('loaded');
+      document.getElementById('dz-icon').textContent = '✅';
+      document.getElementById('dz-title').textContent = `${currentData.length.toLocaleString()} companies loaded`;
+      document.getElementById('dz-hint').textContent = file.name + ' · running screener…';
+
+      updateStatusBar();
+
+      // Run immediately — small delay so UI update is visible first
+      setTimeout(() => {
+        runScreener();
+        document.getElementById('dz-hint').textContent = file.name;
+      }, 120);
+
+    } catch(err) {
+      dz.classList.remove('loading');
+      document.getElementById('dz-icon').textContent = '❌';
+      document.getElementById('dz-title').textContent = 'Error reading file';
+      document.getElementById('dz-hint').textContent = err.message;
+      console.error(err);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ── Wire up file input ────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+// ── Drag and drop ─────────────────────────────────────────
+const dz = document.getElementById('dropzone');
+
+dz.addEventListener('dragover', e => {
+  e.preventDefault();
+  dz.classList.add('drag-over');
+});
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault();
+  dz.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith('.csv')) {
+    handleFile(file);
+  } else {
+    document.getElementById('dz-title').textContent = 'Please drop a .csv file';
+  }
+});
+
+// ── Live re-filter when dropdowns/inputs change ───────────
+['f-country','f-tier','f-eurrate','f-peg','f-pe','f-epsg','f-roce'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    if (currentData) runScreener();
+  });
+});
+
+// ── Clear memory button ───────────────────────────────────
+document.getElementById('clear-prev-btn').addEventListener('click', () => {
+  if (confirm('Clear the saved previous quarter? This removes HOLD/SELL memory. The next run will treat everything as new BUYs.')) {
+    clearPreviousTickers();
+    if (currentData) runScreener();
+  }
+});
+
+// ── Init: update UI from any saved memory ────────────────
+updateMemPill();
+updateStatusBar();
+</script>
+</body>
+</html>
